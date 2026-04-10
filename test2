@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Custom Map App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+
+    #map { height: 100vh; }
+
+    #searchBox {
+      position: absolute;
+      top: 10px;
+      left: 50px;
+      z-index: 1000;
+      background: white;
+      padding: 8px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    #searchBox input {
+      border: none;
+      outline: none;
+      width: 200px;
+    }
+
+    #sidebar {
+      position: absolute;
+      top: 60px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      max-height: 300px;
+      overflow-y: auto;
+      width: 200px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+
+<div id="searchBox">
+  <input type="text" id="searchInput" placeholder="Search location...">
+  <button onclick="search()">Go</button>
+</div>
+
+<div id="sidebar">
+  <b>Layers</b><br>
+  <label><input type="checkbox" id="geoToggle" checked onchange="toggleGeo()"> My Data</label>
+</div>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+  // Initialize map
+  const map = L.map('map').setView([43.7, -79.4], 11);
+
+  // Base layer
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Layer group for user data
+  let geoLayer = L.layerGroup().addTo(map);
+
+  // Load GeoJSON (replace with your file)
+  fetch('map.geojson')
+    .then(res => res.json())
+    .then(data => {
+      geoLayer = L.geoJSON(data, {
+        onEachFeature: function (feature, layer) {
+          if (feature.properties && feature.properties.name) {
+            layer.bindPopup(feature.properties.name);
+          }
+        }
+      }).addTo(map);
+    })
+    .catch(() => {
+      console.log("No GeoJSON file loaded (optional)");
+    });
+
+  // Search function (OpenStreetMap Nominatim)
+  async function search() {
+    const query = document.getElementById('searchInput').value;
+    if (!query) return;
+
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+    const data = await res.json();
+
+    if (data.length > 0) {
+      const lat = data[0].lat;
+      const lon = data[0].lon;
+      map.setView([lat, lon], 13);
+
+      L.marker([lat, lon])
+        .addTo(map)
+        .bindPopup(query)
+        .openPopup();
+    }
+  }
+
+  // Toggle GeoJSON layer
+  function toggleGeo() {
+    const checked = document.getElementById('geoToggle').checked;
+    if (checked) {
+      geoLayer.addTo(map);
+    } else {
+      map.removeLayer(geoLayer);
+    }
+  }
+
+  // Click to add marker
+  map.on('click', function(e) {
+    const marker = L.marker(e.latlng).addTo(map);
+    marker.bindPopup(`Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`).openPopup();
+  });
+</script>
+
+</body>
+</html>
